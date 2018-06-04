@@ -1,6 +1,6 @@
 {
   "name": "trpc",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "A Tiny RPC javascript fromework",
   "license": "MIT",
   "repository": "",
