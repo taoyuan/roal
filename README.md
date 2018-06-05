@@ -1,6 +1,6 @@
-# trpc
+# roal
 
-> A Tiny RPC layer for communicating for C/S on top of any transport that transfers JSON data.
+> A Remoting Object Access Layer for communicating for C/S on top of any transport that transfers JSON data.
 
 ## What is it?
 
@@ -11,7 +11,7 @@ This package provides a simple RPC mechanism on top of any transport that transf
 ### Installation
 
 ```shell
-npm install trpc
+npm install roal
 ```
 
 The library is written in Typescript and will work in any environment that supports ES5 and ES6-style promises (either native or through a shim). No external typings are required for using this library with Typescript (version >= 2).
@@ -46,7 +46,7 @@ __Comming Soon__
 
 ### Incoming messages
 
-```
+```typescript
 rpc.handle(message);
 ```
 
@@ -68,7 +68,7 @@ Register a srvice method for RPC calls with name `name`. Returns the provider in
 
 ### Registering RPC handlers
 
-```ty
+```typescript
 rpc.methods({[name: string]: function});
 ```
 
@@ -76,7 +76,7 @@ Register multiple rpc handlers.
 
 ### Listening signal
 
-```
+```typescript
 rpc.onSignal(signal, listener));
 ```
 
@@ -87,7 +87,7 @@ Register a handler function for signals with id `id`. Returns the provider insta
 
 ### Sending RPC remote calls
 
-```
+```typescript
 const result = rpc.request(name, payload, transfer);
 ```
 
@@ -101,7 +101,7 @@ the operation).
 
 ### Emitting signals
 
-```
+```typescript
 rpc.signal(signal, payload, transfer);
 ```
 
@@ -115,7 +115,7 @@ Returns a `Disposable` instance. The `Disposable` instance has one method `dispo
 
 ### Removing RPC handlers
 
-```
+```typescript
 rpc.removeMethod(name);
 ```
 
@@ -123,7 +123,7 @@ Returns the provider instance.
 
 ### Removing signal handlers
 
-```
+```typescript
 rpc.offSignal(signal);
 ```
 
@@ -131,7 +131,7 @@ Returns the provider instance.
 
 ### Errors
 
-```
+```typescript
 rpc.on('error', handler);
 ```
 
