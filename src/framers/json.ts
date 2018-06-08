@@ -1,4 +1,4 @@
-import {Codec, Constructor, Framer, isCodec} from "../interfaces";
+import {Codec, Constructor, Framer, isCodec} from "../defines";
 
 export class DefaultCodec<T> implements Codec<T> {
   clazz: Constructor<T>;

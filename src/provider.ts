@@ -1,6 +1,6 @@
 import {EventEmitter} from "events";
 import {Method} from "./method";
-import {Message} from "./interfaces";
+import {Context, Dispatcher, Message} from "./defines";
 import {createError, ErrorCodes} from "./errors";
 
 export const MSG_RESOLVE = "resolve";
@@ -30,15 +30,6 @@ export enum MessageType {
   internal
 }
 
-export interface Dispatcher {
-  (message: Message, transfer?: Array<any>): boolean;
-}
-
-export interface ProviderOptions {
-  dispatch?: Dispatcher,
-  timeout?: number
-}
-
 export class Provider extends EventEmitter {
   private _nextId = 0;
   private _signals = new EventEmitter();
@@ -54,11 +45,11 @@ export class Provider extends EventEmitter {
     this._timeout = timeout || 0;
   }
 
-  dispatch(message: Message, transfer?: any): boolean {
+  dispatch(message: Message, context?: Context) {
     if (!this._dispatch) {
       throw new Error('Not implemented');
     }
-    return this._dispatch(message, transfer);
+    return this._dispatch(message, context);
   }
 
   error(code?: number, message?: string, data?: any) {
@@ -90,7 +81,7 @@ export class Provider extends EventEmitter {
   methods(methods: { [name: string]: Function }): this {
     methods = methods || {};
 
-    for (let name in methods) {
+    for (const name in methods) {
       this.method(name, methods[name]);
     }
 
@@ -130,23 +121,23 @@ export class Provider extends EventEmitter {
     return await this._methods[name].execute(this, params);
   }
 
-  handle(message: Message): void {
+  handle(message: Message, context?: Context): void {
     switch (message.type) {
       case MessageType.signal:
-        return this._handleSignal(message);
+        return this._handleSignal(message, context);
 
       case MessageType.rpc:
-        return this._handelRequest(message);
+        return this._handelRequest(message, context);
 
       case MessageType.internal:
-        return this._handleInternal(message);
+        return this._handleInternal(message, context);
 
       default:
-        return this._raiseError(`invalid message type ${message.type}`);
+        return this._raiseError(`invalid message type ${message.type}`, undefined, context);
     }
   }
 
-  request<T, U>(method: string, params?: T, transfer?: any, options?: any | number): Promise<U> {
+  request<T, U>(method: string, params?: T, options?: any | number): Promise<U> {
     return new Promise((resolve, reject) => {
       if (typeof options === 'number') {
         options = {timeout: options}
@@ -171,36 +162,48 @@ export class Provider extends EventEmitter {
         id: id,
         name: method,
         payload: params
-      }, transfer ? transfer : undefined);
+      });
     });
   }
 
-  signal(name: string, payload?: any, transfer?: any): boolean {
-    return this.dispatch({
+  signal(name: string, payload?: any) {
+    this.dispatch({
       type: MessageType.signal,
       name,
       payload,
-    }, transfer ? transfer : undefined);
+    });
   }
 
-  private _raiseError(reason: string): void {
-    const error = createError(ErrorCodes.INVALID_SIGNAL, reason);
+  protected _raiseError(code: number, reason?: string, context?: Context): void;
+  protected _raiseError(reason: string, code?: number, context?: Context): void;
+  protected _raiseError(code: number | string, reason?: number | string, context?: Context): void {
+    let codeToUse: number;
+    let reasonToUse: string;
+    if (typeof code === 'number') {
+      codeToUse = code;
+      reasonToUse = <string>reason;
+    } else {
+      codeToUse = <number>reason;
+      reasonToUse = code;
+    }
+
+    const error = createError(codeToUse || ErrorCodes.INTERNAL_ERROR, reasonToUse);
     this.emit('error', error);
     this.dispatch({
       type: MessageType.internal,
       name: MSG_ERROR,
       payload: error
-    });
+    }, context);
   }
 
-  private _handleSignal(message: Message): void {
+  protected _handleSignal(message: Message, context?: Context): void {
     if (!this._signals.listenerCount('signal') && !this._signals.listenerCount(message.name)) {
-      return this._raiseError(`invalid signal ${message.name}`);
+      return this._raiseError(`invalid signal ${message.name}`, undefined, context);
     }
-    this._signals.emit(message.name, message.payload);
+    this._signals.emit(message.name, message.payload, context);
   }
 
-  private _handelRequest(message: Message): any {
+  protected _handelRequest(message: Message, context?: Context): any {
     if (!this._methods[message.name]) {
       // return this._raiseError(`invalid method "${message.name}"`);
       return this.dispatch({
@@ -208,7 +211,7 @@ export class Provider extends EventEmitter {
         name: MSG_REJECT,
         id: message.id,
         payload: createError(ErrorCodes.METHOD_NOT_FOUND, `invalid method "${message.name}"`)
-      });
+      }, context);
     }
 
     return this.call(message.name, message.payload).then(
@@ -217,24 +220,24 @@ export class Provider extends EventEmitter {
         name: MSG_RESOLVE,
         id: message.id,
         payload: result
-      }),
+      }, context),
       (reason: any) => this.dispatch({
         type: MessageType.internal,
         name: MSG_REJECT,
         id: message.id,
         payload: reason
-      })
+      }, context)
     );
   }
 
-  private _handleInternal(message: Message): any {
+  protected _handleInternal(message: Message, context?: Context): any {
     switch (message.name) {
       case MSG_RESOLVE:
         if (!message.id && message.id != 0) {
-          return this._raiseError(`invalid internal message. message "id" is required`);
+          return this._raiseError(`invalid internal message. message "id" is required`, undefined, context);
         }
         if (!this._txs[message.id]) {
-          return this._raiseError(`no pending transaction with id ${message.id}`);
+          return this._raiseError(`no pending transaction with id ${message.id}`, undefined, context);
         }
 
         this._txs[message.id].resolve(message.payload);
@@ -244,10 +247,10 @@ export class Provider extends EventEmitter {
 
       case MSG_REJECT:
         if (!message.id && message.id != 0) {
-          return this._raiseError(`invalid internal message. message "id" is required`);
+          return this._raiseError(`invalid internal message. message "id" is required`, undefined, context);
         }
         if (!this._txs[message.id]) {
-          return this._raiseError(`no pending transaction with id ${message.id}`);
+          return this._raiseError(`no pending transaction with id ${message.id}`, undefined, context);
         }
 
         this._txs[message.id].reject(message.payload);
@@ -256,22 +259,22 @@ export class Provider extends EventEmitter {
         break;
 
       case MSG_ERROR:
-        this.emit('error', message.payload);
+        this.emit('error', message.payload, undefined, context);
         break;
 
       default:
-        this._raiseError(`unhandled internal message ${message.name}`);
+        this._raiseError(`unhandled internal message ${message.name}`, undefined, context);
         break;
     }
   }
 
-  private _handleTimeout(transaction: Transaction): void {
+  protected _handleTimeout(transaction: Transaction): void {
     transaction.reject('transaction timed out');
     this._raiseError(`transaction ${transaction.id} timed out`);
     delete this._txs[transaction.id];
   }
 
-  private _clearTransaction(transaction: Transaction): void {
+  protected _clearTransaction(transaction: Transaction): void {
     if (typeof(transaction.hTimeout) !== 'undefined') {
       clearTimeout(transaction.hTimeout);
     }

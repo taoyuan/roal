@@ -6,18 +6,14 @@ describe("provider", () => {
   let client: Provider;
   let errorServer: Error | null;
   let errorClient: Error | null;
-  let transferServerToClient: any[] | undefined;
-  let transferClientToServer: any[] | undefined;
 
   beforeEach(() => {
     server = new Provider((message, transfer): boolean => {
-      transferServerToClient = transfer;
       client.handle(message);
       return true;
     }, 50);
 
     client = new Provider((message, transfer): boolean => {
-      transferClientToServer = transfer;
       server.handle(message);
       return true;
     }, 50);
@@ -108,19 +104,6 @@ describe("provider", () => {
         });
     });
 
-    it('Transfer is honored', function () {
-      const transfer = [1, 2, 3];
-
-      server.method('action', () => 10);
-
-      return client.request('action', undefined, transfer).then(x => {
-        assert.strictEqual(transferClientToServer, transfer);
-        assert.strictEqual(x, 10);
-        assert(!errorClient);
-        assert(!errorServer);
-      });
-    });
-
   });
 
 
@@ -183,20 +166,6 @@ describe("provider", () => {
       assert.strictEqual(x, -1);
     });
 
-    it('Transfer is honored', () => {
-      let x = -1;
-      const transfer = [1, 2, 3];
-
-      server.onSignal('action', (value: number) => x = value);
-
-      client.signal('action', 2, transfer);
-
-      assert(!errorClient);
-      assert(!errorServer);
-      assert.strictEqual(x, 2);
-      assert.strictEqual(transferClientToServer, transfer);
-      assert(!transferServerToClient);
-    });
   });
 
 });

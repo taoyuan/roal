@@ -20,13 +20,10 @@ export function isCodec(arg: any): arg is Codec<any> {
 
 export interface Framer<T> {
   register(...codecs: T[]);
-  encode(input: any): Buffer;
-  decode(input: Buffer | Uint8Array | number[]): any;
-}
 
-export interface Channel extends EventEmitter {
-  write(data: ArrayLike<any>): boolean;
-  close?(): Promise<void>;
+  encode(input: any): Buffer;
+
+  decode(input: Buffer | Uint8Array | number[]): any;
 }
 
 export interface Message {
@@ -34,4 +31,22 @@ export interface Message {
   name: string;
   id?: number;
   payload?: any;
+}
+
+export interface Context {
+  [name: string]: any;
+}
+
+export function isTransport(arg: any): arg is Transport {
+  return typeof arg.send === 'function';
+}
+
+export interface Channel extends EventEmitter {
+  write(data: ArrayLike<any>);
+
+  close?(): Promise<void>;
+}
+
+export interface Dispatcher {
+  (message: Message, context?: Context): boolean;
 }

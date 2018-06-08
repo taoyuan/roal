@@ -1,43 +1,46 @@
 import {Provider} from "./provider";
-import {Channel, Framer, Message} from "./interfaces";
-import {Transport} from "./transport";
+import {Context, Framer, Message} from "./defines";
 import {JsonFramer} from "./framers";
+import {ErrorCodes} from "./errors";
+import {Transport} from "./transport";
 
 export interface RPCOptions {
   id?: any;
-  timeout?: number,
-  framer?: Framer<any>,
+  timeout?: number;
+  framer?: Framer<any>;
+  methods?: { [name: string]: Function }
 }
 
 export class RPC extends Provider {
   id: any;
   framer: Framer<any>;
-  transport: Transport;
 
-  static create(transportOrChannel: Transport | Channel, options: RPCOptions = {}) {
-    return new RPC(transportOrChannel, options);
+  static create(transport: Transport, options: RPCOptions = {}) {
+    return new RPC(transport, options);
   }
 
-  constructor(transportOrChannel: Transport | Channel, options: RPCOptions = {}) {
+  constructor(public transport: Transport, options: RPCOptions = {}) {
     super(undefined, options.timeout);
-
-    if (transportOrChannel instanceof Transport) {
-      this.transport = transportOrChannel;
-    } else {
-      this.transport = new Transport(transportOrChannel);
-    }
 
     this.id = options.id;
     this.framer = options.framer || new JsonFramer();
 
-    this.init();
+    this.init(options);
   }
 
-  protected init() {
+  protected init(options: RPCOptions) {
     // handle incoming message
-    this.transport.on('data', data => {
-      const message = this.framer.decode(data);
-      this.handle(message);
+    this.transport.on('data', (data, context) => {
+      try {
+        const message = this.framer.decode(data);
+        try {
+          this.handle(message, context);
+        } catch (e) {
+          this._raiseError(ErrorCodes.INTERNAL_ERROR, e.message);
+        }
+      } catch (e) {
+        this._raiseError(ErrorCodes.PARSE_ERROR, e.message);
+      }
     });
 
     this.transport.on('error', error => {
@@ -47,11 +50,16 @@ export class RPC extends Provider {
     this.transport.on('exit', (code, signal) => {
       this.emit('exit', code, signal);
     });
+
+    if (options.methods) {
+      this.methods(options.methods);
+    }
   }
 
-  dispatch(message: Message, transfer?: any): boolean {
+  dispatch(message: Message, context?: Context): boolean {
     // handle outgoing message
-    return this.transport.send(this.framer.encode(message), transfer);
+    this.transport.send(this.framer.encode(message), context);
+    return true;
   }
 
   async close() {

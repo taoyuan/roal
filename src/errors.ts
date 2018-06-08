@@ -1,4 +1,4 @@
-export interface RemError {
+export interface RpcError {
   code: number;
   message: string;
   data?: any;
@@ -22,7 +22,7 @@ export const ErrorMessages = {
   [ErrorCodes.INVALID_SIGNAL]: 'Invalid signal',
 };
 
-export function createError(code?: number, message?: string, data?: any): RemError {
+export function createError(code?: number, message?: string, data?: any): RpcError {
   if (typeof(code) !== 'number') {
     code = ErrorCodes.INTERNAL_ERROR;
   }
@@ -31,7 +31,7 @@ export function createError(code?: number, message?: string, data?: any): RemErr
     message = ErrorMessages[code] || '';
   }
 
-  const error: RemError = {code: code, message: message};
+  const error: RpcError = {code: code, message: message};
   if (typeof(data) !== 'undefined') {
     error.data = data;
   }
