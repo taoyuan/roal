@@ -1,6 +1,6 @@
 import {EventEmitter} from "events";
 import {Method} from "./method";
-import {TransportContext, Dispatcher, Message} from "./defines";
+import {TransportContext, Dispatcher, Message, MT_SIGNAL, MT_RPC, MT_INTERNAL} from "./defines";
 import {createError, ErrorCodes} from "./errors";
 import {makeInternalMessage, makeRequestMessage, makeSignalMessage, nextId} from "./utils";
 
@@ -25,14 +25,7 @@ export interface Transaction {
   reject(error: string): void;
 }
 
-export enum MessageType {
-  signal,
-  rpc,
-  internal
-}
-
 export class Provider extends EventEmitter {
-  private _nextId = 0;
   private _signals = new EventEmitter();
   private _methods: { [id: string]: Method } = {};
   private _txs: { [id: number]: Transaction } = {};
@@ -124,13 +117,13 @@ export class Provider extends EventEmitter {
 
   handle(message: Message, context?: TransportContext): void {
     switch (message.type) {
-      case MessageType.signal:
+      case MT_SIGNAL:
         return this._handleSignal(message, context);
 
-      case MessageType.rpc:
+      case MT_RPC:
         return this._handelRequest(message, context);
 
-      case MessageType.internal:
+      case MT_INTERNAL:
         return this._handleInternal(message, context);
 
       default:

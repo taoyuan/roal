@@ -1,5 +1,6 @@
-import {EventEmitter} from "events";
-import {MessageType} from "./provider";
+export const MT_RPC = 'rpc';
+export const MT_SIGNAL = 'signal';
+export const MT_INTERNAL = 'internal';
 
 export type EncodeFunc = (input: any) => any;
 export type DecodeFunc = (input: any) => any;
@@ -27,7 +28,7 @@ export interface Framer<T> {
 }
 
 export interface Message {
-  type: MessageType;
+  type: string;
   id?: number | string;
   name: string;
   payload?: any;
