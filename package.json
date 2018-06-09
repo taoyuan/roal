@@ -1,6 +1,6 @@
 {
   "name": "roal",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A Remoting Object Access Layer for communicating for C/S on top of any transport that transfers JSON data.",
   "license": "MIT",
   "repository": "",
