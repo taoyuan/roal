@@ -1,25 +1,7 @@
 import * as net from "net";
-import {Socket} from "net";
-import {Channel, RPC, StreamTransport} from "../../src";
-import {EventEmitter} from "events";
-
-export class TcpChannel extends EventEmitter implements Channel {
-
-  constructor(public conn: Socket) {
-    super();
-    conn.on('data', data => {
-      this.emit('data', data);
-    });
-
-    conn.on('end', () => {
-      this.emit('end');
-    });
-  }
-
-  write(data) {
-    this.conn.write(data);
-  }
-}
+import {RPC, StreamTransport} from "../../src";
+import {TcpChannel} from "./tcp";
+import {Counter} from "./counter";
 
 export function buildConnectionListener(methods, errorHandler?: (err) => void) {
   const errorListener = errorHandler || (() => undefined);
@@ -28,6 +10,7 @@ export function buildConnectionListener(methods, errorHandler?: (err) => void) {
     channel.once('end', () => rpc.close());
     const rpc = RPC.create(new StreamTransport(channel), {methods});
     rpc.on('error', errorListener);
+    rpc.framer.register(Counter);
   }
 }
 

@@ -28,8 +28,8 @@ export interface Framer<T> {
 
 export interface Message {
   type: MessageType;
+  id?: number | string;
   name: string;
-  id?: number;
   payload?: any;
 }
 

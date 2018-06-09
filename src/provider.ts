@@ -2,6 +2,7 @@ import {EventEmitter} from "events";
 import {Method} from "./method";
 import {Context, Dispatcher, Message} from "./defines";
 import {createError, ErrorCodes} from "./errors";
+import {makeInternalMessage, makeRequestMessage, makeSignalMessage, nextId} from "./utils";
 
 export const MSG_RESOLVE = "resolve";
 export const MSG_REJECT = "reject";
@@ -145,7 +146,7 @@ export class Provider extends EventEmitter {
       options = options || {};
       const timeout = options.timeout != null ? options.timeout : this._timeout;
 
-      const id = this._nextId++;
+      const id = nextId();
 
       const transaction = this._txs[id] = {
         id,
@@ -157,21 +158,12 @@ export class Provider extends EventEmitter {
         this._txs[id].hTimeout = setTimeout(() => this._handleTimeout(transaction), timeout);
       }
 
-      this.dispatch({
-        type: MessageType.rpc,
-        id: id,
-        name: method,
-        payload: params
-      });
+      this.dispatch(makeRequestMessage(method, params, id));
     });
   }
 
   signal(name: string, payload?: any) {
-    this.dispatch({
-      type: MessageType.signal,
-      name,
-      payload,
-    });
+    this.dispatch(makeSignalMessage(name, payload));
   }
 
   protected _raiseError(code: number, reason?: string, context?: Context): void;
@@ -189,11 +181,12 @@ export class Provider extends EventEmitter {
 
     const error = createError(codeToUse || ErrorCodes.INTERNAL_ERROR, reasonToUse);
     this.emit('error', error);
-    this.dispatch({
-      type: MessageType.internal,
-      name: MSG_ERROR,
-      payload: error
-    }, context);
+
+
+    this.dispatch(makeInternalMessage(
+      MSG_ERROR,
+      error,
+    ), context);
   }
 
   protected _handleSignal(message: Message, context?: Context): void {
@@ -206,27 +199,25 @@ export class Provider extends EventEmitter {
   protected _handelRequest(message: Message, context?: Context): any {
     if (!this._methods[message.name]) {
       // return this._raiseError(`invalid method "${message.name}"`);
-      return this.dispatch({
-        type: MessageType.internal,
-        name: MSG_REJECT,
-        id: message.id,
-        payload: createError(ErrorCodes.METHOD_NOT_FOUND, `invalid method "${message.name}"`)
-      }, context);
+
+      return this.dispatch(makeInternalMessage(
+        MSG_REJECT,
+        createError(ErrorCodes.METHOD_NOT_FOUND, `invalid method "${message.name}"`),
+        message.id
+      ), context);
     }
 
     return this.call(message.name, message.payload).then(
-      (result: any) => this.dispatch({
-        type: MessageType.internal,
-        name: MSG_RESOLVE,
-        id: message.id,
-        payload: result
-      }, context),
-      (reason: any) => this.dispatch({
-        type: MessageType.internal,
-        name: MSG_REJECT,
-        id: message.id,
-        payload: reason
-      }, context)
+      (result: any) => this.dispatch(makeInternalMessage(
+        MSG_RESOLVE,
+        result,
+        message.id
+      ), context),
+      (reason: any) => this.dispatch(makeInternalMessage(
+        MSG_REJECT,
+        reason,
+        message.id
+      ), context)
     );
   }
 
