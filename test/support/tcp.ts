@@ -1,13 +1,16 @@
-import {EventEmitter} from "events";
 import {Socket} from "net";
-import {Channel} from "../../src";
+import {StreamTransport} from "../../src";
 
-export class TcpChannel extends EventEmitter implements Channel {
+export class TcpTransport extends StreamTransport {
 
   constructor(public conn: Socket) {
     super();
+
+    const c = <any> conn;
+    c.__rpc = c.__rpc || {conn};
+
     conn.on('data', data => {
-      this.emit('data', data);
+      this.read(data, c.__rpc);
     });
 
     conn.on('end', () => {
@@ -15,7 +18,7 @@ export class TcpChannel extends EventEmitter implements Channel {
     });
   }
 
-  write(data) {
+  write(data, context) {
     this.conn.write(data);
   }
 

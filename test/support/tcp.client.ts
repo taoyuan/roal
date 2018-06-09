@@ -1,6 +1,6 @@
 import * as net from "net";
 import {RPC, StreamTransport} from "../../src";
-import {TcpChannel} from "./tcp";
+import {TcpTransport} from "./tcp";
 import {Counter} from "./counter";
 
 export function createClient(port: number, host?: string, errorHandler?: (err) => void);
@@ -11,9 +11,10 @@ export function createClient(port: number, host?: string | ((err) => void), erro
     host = undefined;
   }
   const errorListener = errorHandler || (() => undefined);
-  const channel = new TcpChannel(net.connect(port, host));
-  const rpc = RPC.create(new StreamTransport(channel));
+  const transport = new TcpTransport(net.connect(port, host));
+  transport.framer.register(Counter);
+
+  const rpc = RPC.create(transport);
   rpc.on('error', errorListener);
-  rpc.framer.register(Counter);
   return rpc;
 }

@@ -1,6 +1,5 @@
 import {Provider} from "./provider";
-import {Context, Framer, Message} from "./defines";
-import {JsonFramer} from "./framers";
+import {TransportContext, Framer, Message} from "./defines";
 import {ErrorCodes} from "./errors";
 import {Transport} from "./transport";
 
@@ -13,41 +12,48 @@ export interface RPCOptions {
 
 export class RPC extends Provider {
   id: any;
-  framer: Framer<any>;
+
+  protected _transport: Transport;
 
   static create(transport: Transport, options: RPCOptions = {}) {
     return new RPC(transport, options);
   }
 
-  constructor(public transport: Transport, options: RPCOptions = {}) {
+  constructor(transport: Transport, options: RPCOptions = {}) {
     super(undefined, options.timeout);
+    this._transport = transport;
 
     this.id = options.id;
-    this.framer = options.framer || new JsonFramer();
 
     this.init(options);
   }
 
+  get transport() {
+    return this._transport;
+  }
+
   protected init(options: RPCOptions) {
     // handle incoming message
-    this.transport.on('data', (data, context) => {
+    this._transport.on('error:decode', (err, context) => {
+      this._raiseError(ErrorCodes.PARSE_ERROR, err.message, context);
+    });
+
+    this._transport.on('message', (message, context) => {
+      if (!message || !message.name) {
+        return this._raiseError(ErrorCodes.PARSE_ERROR, context);
+      }
       try {
-        const message = this.framer.decode(data);
-        try {
-          this.handle(message, context);
-        } catch (e) {
-          this._raiseError(ErrorCodes.INTERNAL_ERROR, e.message);
-        }
+        this.handle(message, context);
       } catch (e) {
-        this._raiseError(ErrorCodes.PARSE_ERROR, e.message);
+        this._raiseError(ErrorCodes.INTERNAL_ERROR, e.message, context);
       }
     });
 
-    this.transport.on('error', error => {
+    this._transport.on('error', error => {
       this.emit('error', error);
     });
 
-    this.transport.on('exit', (code, signal) => {
+    this._transport.on('exit', (code, signal) => {
       this.emit('exit', code, signal);
     });
 
@@ -56,13 +62,13 @@ export class RPC extends Provider {
     }
   }
 
-  dispatch(message: Message, context?: Context): boolean {
+  dispatch(message: Message, context?: TransportContext): boolean {
     // handle outgoing message
-    this.transport.send(this.framer.encode(message), context);
+    this._transport.send(message, context);
     return true;
   }
 
   async close() {
-    await this.transport.close();
+    await this._transport.close();
   }
 }

@@ -18,9 +18,6 @@ describe("rpc", () => {
 
     it("should incrementCounterBy", async () => {
       const {server, client} = s.givenAPairOfRPCWithMockChannel(s.methods);
-      server.framer.register(Counter);
-      client.framer.register(Counter);
-
       const counter = new Counter(1);
       const result = <Counter> await client.request('incrementCounterBy', [counter, 2]);
       assert.equal(result.count, 3);

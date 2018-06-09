@@ -1,6 +1,6 @@
 import {EventEmitter} from "events";
 import {Method} from "./method";
-import {Context, Dispatcher, Message} from "./defines";
+import {TransportContext, Dispatcher, Message} from "./defines";
 import {createError, ErrorCodes} from "./errors";
 import {makeInternalMessage, makeRequestMessage, makeSignalMessage, nextId} from "./utils";
 
@@ -46,7 +46,7 @@ export class Provider extends EventEmitter {
     this._timeout = timeout || 0;
   }
 
-  dispatch(message: Message, context?: Context) {
+  dispatch(message: Message, context?: TransportContext) {
     if (!this._dispatch) {
       throw new Error('Not implemented');
     }
@@ -122,7 +122,7 @@ export class Provider extends EventEmitter {
     return await this._methods[name].execute(this, params);
   }
 
-  handle(message: Message, context?: Context): void {
+  handle(message: Message, context?: TransportContext): void {
     switch (message.type) {
       case MessageType.signal:
         return this._handleSignal(message, context);
@@ -166,9 +166,9 @@ export class Provider extends EventEmitter {
     this.dispatch(makeSignalMessage(name, payload));
   }
 
-  protected _raiseError(code: number, reason?: string, context?: Context): void;
-  protected _raiseError(reason: string, code?: number, context?: Context): void;
-  protected _raiseError(code: number | string, reason?: number | string, context?: Context): void {
+  protected _raiseError(code: number, reason?: string, context?: TransportContext): void;
+  protected _raiseError(reason: string, code?: number, context?: TransportContext): void;
+  protected _raiseError(code: number | string, reason?: number | string, context?: TransportContext): void {
     let codeToUse: number;
     let reasonToUse: string;
     if (typeof code === 'number') {
@@ -189,14 +189,14 @@ export class Provider extends EventEmitter {
     ), context);
   }
 
-  protected _handleSignal(message: Message, context?: Context): void {
+  protected _handleSignal(message: Message, context?: TransportContext): void {
     if (!this._signals.listenerCount('signal') && !this._signals.listenerCount(message.name)) {
       return this._raiseError(`invalid signal ${message.name}`, undefined, context);
     }
     this._signals.emit(message.name, message.payload, context);
   }
 
-  protected _handelRequest(message: Message, context?: Context): any {
+  protected _handelRequest(message: Message, context?: TransportContext): any {
     if (!this._methods[message.name]) {
       // return this._raiseError(`invalid method "${message.name}"`);
 
@@ -221,7 +221,7 @@ export class Provider extends EventEmitter {
     );
   }
 
-  protected _handleInternal(message: Message, context?: Context): any {
+  protected _handleInternal(message: Message, context?: TransportContext): any {
     switch (message.name) {
       case MSG_RESOLVE:
         if (!message.id && message.id != 0) {

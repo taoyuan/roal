@@ -1,4 +1,4 @@
-import {Transport} from "../../src";
+import {Message, Transport} from "../../src";
 
 export class MockTransport extends Transport {
   dest: MockTransport;
@@ -8,9 +8,9 @@ export class MockTransport extends Transport {
     return dest;
   }
 
-  send(data: Buffer) {
+  send(message: Message) {
     if (!this.dest) throw new Error('dest pipe is not assigned');
-    this.dest.emit('data', data);
+    this.dest.emit('message', message);
   }
 
 }

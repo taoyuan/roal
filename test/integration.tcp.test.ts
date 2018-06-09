@@ -1,10 +1,10 @@
 import {assert} from "chai";
 import * as net from "net";
 import * as s from "./support";
-import {RPC, StreamTransport} from "../src";
+import {RPC} from "../src";
 import {createServer} from "./support/tcp.server";
 import {createClient} from "./support/tcp.client";
-import {TcpChannel} from "./support/tcp";
+import {TcpTransport} from "./support/tcp";
 import {suitesCommonForClient} from "./suites";
 import {makeRequestMessage} from "../src/utils";
 
@@ -37,7 +37,7 @@ describe('tcp/integration', () => {
 
       beforeEach(function (done) {
         socket = net.connect(3999, 'localhost', done);
-        transport = new StreamTransport(new TcpChannel(socket));
+        transport = new TcpTransport(socket);
       });
 
       afterEach(function (done) {
@@ -46,10 +46,8 @@ describe('tcp/integration', () => {
       });
 
       it('should send a parse error for invalid JSON data', function (done) {
-        transport.on('data', function (data) {
+        transport.on('message', function (message) {
           // parse
-          const message = JSON.parse(data);
-
           assert.equal(message.name, 'error');
           assert.include(message.payload, {
             code: -32700 // Parse Error
@@ -63,13 +61,13 @@ describe('tcp/integration', () => {
 
       it('should send more than one reply on the same socket', function (done) {
         const replies: any[] = [];
-        transport.on('data', function (data) {
-          replies.push(JSON.parse(data));
+        transport.on('message', function (message) {
+          replies.push(message);
         });
 
         // write raw requests to the socket
-        transport.send(JSON.stringify(makeRequestMessage('delay', [20])));
-        transport.send(JSON.stringify(makeRequestMessage('delay', [5])));
+        transport.send(makeRequestMessage('delay', [20]));
+        transport.send(makeRequestMessage('delay', [5]));
 
         setTimeout(function () {
           assert.lengthOf(replies, 2);

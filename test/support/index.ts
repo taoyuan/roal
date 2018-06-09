@@ -1,6 +1,5 @@
 import * as chai from "chai";
 import * as chaiAsPromised from "chai-as-promised";
-import {Counter} from "./counter";
 import {RPC} from "../../src";
 import {MockTransport} from "../mocks/mock-transport";
 import * as _methods from "./methods";
@@ -34,9 +33,6 @@ export function givenAPairOfRPCWithMockChannel(methods) {
 
   const server = RPC.create(st);
   const client = RPC.create(ct);
-
-  server.framer.register(Counter);
-  client.framer.register(Counter);
 
   server.methods(methods);
 

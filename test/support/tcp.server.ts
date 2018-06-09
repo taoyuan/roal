@@ -1,16 +1,17 @@
 import * as net from "net";
-import {RPC, StreamTransport} from "../../src";
-import {TcpChannel} from "./tcp";
+import {RPC} from "../../src";
+import {TcpTransport} from "./tcp";
 import {Counter} from "./counter";
 
 export function buildConnectionListener(methods, errorHandler?: (err) => void) {
   const errorListener = errorHandler || (() => undefined);
   return conn => {
-    const channel = new TcpChannel(conn);
-    channel.once('end', () => rpc.close());
-    const rpc = RPC.create(new StreamTransport(channel), {methods});
+    const transport = new TcpTransport(conn);
+    transport.framer.register(Counter);
+    transport.once('end', () => rpc.close());
+
+    const rpc = RPC.create(transport, {methods});
     rpc.on('error', errorListener);
-    rpc.framer.register(Counter);
   }
 }
 

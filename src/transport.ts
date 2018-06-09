@@ -1,18 +1,23 @@
-import {Context} from "./defines";
+import {TransportContext, Message} from "./defines";
 import {EventEmitter} from "events";
 
 export class Transport extends EventEmitter {
+  private _context = {};
 
   constructor() {
     super();
   }
 
-  recv(data: Buffer | Uint8Array | number[], context?: Context) {
-    this.emit('data', data, context);
+  protected sureContext(context?: TransportContext): TransportContext {
+    return context || this._context;
   }
 
-  send(data: Buffer | Uint8Array | number[], context?: Context) {
+  recv(message: Message, context?: TransportContext) {
+    this.emit('message', message, this.sureContext(context));
+  }
 
+  send(message: Message, context?: TransportContext) {
+    throw new Error('Unimplemented')
   }
 
   close() {

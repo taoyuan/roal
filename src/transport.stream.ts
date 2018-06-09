@@ -1,6 +1,7 @@
 import {EventEmitter} from "events";
-import {Channel, Context} from "./defines";
+import {TransportContext, Framer, Message} from "./defines";
 import {Transport} from "./transport";
+import {JsonFramer} from "./framers";
 
 const BUFFER_INITIAL_SIZE = 1024 * 1024; // 1MB
 const BUFFER_GROW_RATIO = 1.5;
@@ -11,7 +12,8 @@ export class LengthPrefixParser extends EventEmitter {
 
   constructor(
     protected initialSize: number = BUFFER_INITIAL_SIZE,
-    protected ratio: number = BUFFER_GROW_RATIO) {
+    protected ratio: number = BUFFER_GROW_RATIO
+  ) {
     super();
     this.reset(initialSize);
   }
@@ -59,65 +61,51 @@ export class LengthPrefixParser extends EventEmitter {
   }
 }
 
-interface EventListener {
-  (...args: any[]): void;
-}
-
 export class StreamTransport extends Transport {
-  protected parser: LengthPrefixParser;
-  protected channel: Channel;
+  protected _framer: Framer<any>;
 
-  protected onError: EventListener;
-  protected onExit: EventListener;
-  protected onData: EventListener;
-
-  constructor(channel: Channel) {
+  constructor(framer?: Framer<any>) {
     super();
 
-    this.parser = new LengthPrefixParser();
-    this.parser.on('data', data => this.recv(data));
 
-    this.onData = data => this.parser.parse(data);
-    this.onError = (error) => this.emit('error', error);
-    this.onExit = (code, signal) => this.emit('exit', code, signal);
-
-    this.bind(channel);
+    this._framer = framer || new JsonFramer();
   }
 
-  protected bind(channel) {
-    // ignore same channel
-    if (this.channel === channel) {
-      return;
-    }
-
-    if (this.channel) {
-      this.channel.removeListener('error', this.onError);
-      this.channel.removeListener('data', this.onData);
-      this.channel.removeListener('exit', this.onExit);
-    }
-    this.channel = channel;
-    if (channel) {
-      channel.on('error', this.onError);
-      channel.on('data', this.onData);
-      channel.on('exit', this.onExit);
-    }
-    this.parser.reset(channel ? undefined : 0);
+  get framer() {
+    return this._framer;
   }
 
-  send(data: Buffer | Uint8Array | number[], context?: Context) {
-    if (!this.channel) {
-      throw new Error('channel is required');
-    }
+  createParser(context) {
+    const parser = new LengthPrefixParser();
+    parser.on('data', data => {
+      let message;
+      try {
+        message = this._framer.decode(data);
+      } catch (e) {
+        return this.emit('error:decode', e, data);
+      }
+      if (message) this.recv(message, context);
+    });
+    return parser;
+  }
 
+  read(data: Buffer | Uint8Array | number[], context?: TransportContext) {
+    context = this.sureContext(context);
+    if (!context.parser) {
+      context.parser = this.createParser(context);
+    }
+    context.parser.parse(data);
+  }
+
+  write(data: Buffer | Uint8Array | number[], context?: TransportContext) {
+    throw new Error('Unimplemented')
+  }
+
+  send(message: Message, context?: TransportContext) {
+    const data = this._framer.encode(message);
     const len = new Uint32Array([data.length]);
-    this.channel.write(Buffer.from(<ArrayBuffer>len.buffer));
-    this.channel.write(data);
+    this.write(Buffer.from(<ArrayBuffer>len.buffer), context);
+    this.write(data, context);
   }
 
-  async close() {
-    if (this.channel && this.channel.close) {
-      await this.channel.close();
-    }
-    this.bind(null);
-  }
 }
