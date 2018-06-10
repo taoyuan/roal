@@ -1,12 +1,11 @@
 import {assert} from "chai";
 import * as net from "net";
 import * as s from "./support";
-import {RPC} from "../src";
+import {RPC, makeRequestMessage} from "../src";
 import {createServer} from "./support/tcp.server";
 import {createClient} from "./support/tcp.client";
 import {TcpTransport} from "./support/tcp";
 import {suitesCommonForClient} from "./suites";
-import {makeRequestMessage} from "../src/utils";
 
 describe('tcp/integration', () => {
   describe('server', () => {

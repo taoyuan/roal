@@ -14,7 +14,7 @@
   "main": "./lib/index.js",
   "typings": "./lib/index.d.ts",
   "scripts": {
-    "browserify": "npm run build && browserify -s tcrypto lib | uglifyjs -c > tcrypto.js",
+    "browserify": "npm run build && browserify -s roal lib | uglifyjs -c > roal.js",
     "clean": "rimraf lib",
     "build": "npm run clean && echo Using TypeScript && tsc --version && tsc --pretty",
     "test": "npm run build && mocha --require ts-node/register --recursive \"test/**/*.test.ts\"",

@@ -25,7 +25,10 @@ export class DefaultCodec<T> implements Codec<T> {
 export class JsonFramer implements Framer<Constructor<any>> {
   codecs: { [name: string]: Codec<any> } = {};
 
-  constructor() {
+  constructor(...codecs: any[]) {
+    if (codecs.length) {
+      this.register(codecs);
+    }
   }
 
   register(...codecs: any[]) {

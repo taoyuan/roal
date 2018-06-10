@@ -1,10 +1,59 @@
 import {EventEmitter} from "events";
-import {TransportContext, Framer, Message} from "./defines";
-import {Transport} from "./transport";
-import {JsonFramer} from "./framers";
+import {TransportContext, Framer, Message} from "../defines";
+import {Transport} from "../transport";
+import {JsonFramer} from "../framers/json";
 
 const BUFFER_INITIAL_SIZE = 1024 * 1024; // 1MB
 const BUFFER_GROW_RATIO = 1.5;
+
+export class StreamTransport extends Transport {
+  protected _framer: Framer<any>;
+
+  constructor(framer?: Framer<any>) {
+    super();
+
+
+    this._framer = framer || new JsonFramer();
+  }
+
+  get framer() {
+    return this._framer;
+  }
+
+  createParser(context) {
+    const parser = new LengthPrefixParser();
+    parser.on('data', data => {
+      let message;
+      try {
+        message = this._framer.decode(data);
+      } catch (e) {
+        return this.emit('error:decode', e, data);
+      }
+      if (message) this.recv(message, context);
+    });
+    return parser;
+  }
+
+  read(data: Buffer | Uint8Array | number[], context?: TransportContext) {
+    context = this.sureContext(context);
+    if (!context.parser) {
+      context.parser = this.createParser(context);
+    }
+    context.parser.parse(data);
+  }
+
+  write(data: Buffer | Uint8Array | number[], context?: TransportContext) {
+    throw new Error('Unimplemented')
+  }
+
+  send(message: Message, context?: TransportContext) {
+    const data = this._framer.encode(message);
+    const len = new Uint32Array([data.length]);
+    this.write(Buffer.from(<ArrayBuffer>len.buffer), context);
+    this.write(data, context);
+  }
+
+}
 
 export class LengthPrefixParser extends EventEmitter {
   buffer: Buffer;
@@ -59,53 +108,4 @@ export class LengthPrefixParser extends EventEmitter {
     this.pos += chunk.copy(this.buffer, this.pos);
     this.check();
   }
-}
-
-export class StreamTransport extends Transport {
-  protected _framer: Framer<any>;
-
-  constructor(framer?: Framer<any>) {
-    super();
-
-
-    this._framer = framer || new JsonFramer();
-  }
-
-  get framer() {
-    return this._framer;
-  }
-
-  createParser(context) {
-    const parser = new LengthPrefixParser();
-    parser.on('data', data => {
-      let message;
-      try {
-        message = this._framer.decode(data);
-      } catch (e) {
-        return this.emit('error:decode', e, data);
-      }
-      if (message) this.recv(message, context);
-    });
-    return parser;
-  }
-
-  read(data: Buffer | Uint8Array | number[], context?: TransportContext) {
-    context = this.sureContext(context);
-    if (!context.parser) {
-      context.parser = this.createParser(context);
-    }
-    context.parser.parse(data);
-  }
-
-  write(data: Buffer | Uint8Array | number[], context?: TransportContext) {
-    throw new Error('Unimplemented')
-  }
-
-  send(message: Message, context?: TransportContext) {
-    const data = this._framer.encode(message);
-    const len = new Uint32Array([data.length]);
-    this.write(Buffer.from(<ArrayBuffer>len.buffer), context);
-    this.write(data, context);
-  }
-
 }

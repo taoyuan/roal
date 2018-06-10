@@ -1,5 +1,5 @@
 import {Socket} from "net";
-import {StreamTransport} from "../../src";
+import {StreamTransport} from "../../src/transports";
 
 export class TcpTransport extends StreamTransport {
 

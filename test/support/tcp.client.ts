@@ -1,5 +1,5 @@
 import * as net from "net";
-import {RPC, StreamTransport} from "../../src";
+import {RPC} from "../../src";
 import {TcpTransport} from "./tcp";
 import {Counter} from "./counter";
 

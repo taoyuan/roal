@@ -2,7 +2,7 @@ import {TransportContext, Message} from "./defines";
 import {EventEmitter} from "events";
 
 export class Transport extends EventEmitter {
-  private _context = {};
+  protected _context = {};
 
   constructor() {
     super();
