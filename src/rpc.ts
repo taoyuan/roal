@@ -62,10 +62,9 @@ export class RPC extends Provider {
     }
   }
 
-  dispatch(message: Message, context?: TransportContext): boolean {
+  async dispatch(message: Message, context?: TransportContext) {
     // handle outgoing message
-    this._transport.send(message, context);
-    return true;
+    await this._transport.send(message, context);
   }
 
   async close() {

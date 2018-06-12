@@ -16,7 +16,7 @@ export class Transport extends EventEmitter {
     this.emit('message', message, this.sureContext(context));
   }
 
-  send(message: Message, context?: TransportContext) {
+  async send(message: Message, context?: TransportContext) {
     throw new Error('Unimplemented')
   }
 

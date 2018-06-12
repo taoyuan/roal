@@ -46,7 +46,7 @@ export class StreamTransport extends Transport {
     throw new Error('Unimplemented')
   }
 
-  send(message: Message, context?: TransportContext) {
+  async send(message: Message, context?: TransportContext) {
     const data = this._framer.encode(message);
     const len = new Uint32Array([data.length]);
     this.write(Buffer.from(<ArrayBuffer>len.buffer), context);

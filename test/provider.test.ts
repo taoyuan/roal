@@ -8,12 +8,12 @@ describe("provider", () => {
   let errorClient: Error | null;
 
   beforeEach(() => {
-    server = new Provider((message, transfer): boolean => {
+    server = new Provider(async (message, transfer) => {
       client.handle(message);
       return true;
     }, 50);
 
-    client = new Provider((message, transfer): boolean => {
+    client = new Provider(async (message, transfer) => {
       server.handle(message);
       return true;
     }, 50);

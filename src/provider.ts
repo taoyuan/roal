@@ -39,7 +39,7 @@ export class Provider extends EventEmitter {
     this._timeout = timeout || 0;
   }
 
-  dispatch(message: Message, context?: TransportContext) {
+  async dispatch(message: Message, context?: TransportContext) {
     if (!this._dispatch) {
       throw new Error('Not implemented');
     }

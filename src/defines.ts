@@ -39,5 +39,5 @@ export interface TransportContext {
 }
 
 export interface Dispatcher {
-  (message: Message, context?: TransportContext): boolean;
+  (message: Message, context?: TransportContext): Promise<any>;
 }

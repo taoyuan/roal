@@ -8,7 +8,7 @@ export class MockTransport extends Transport {
     return dest;
   }
 
-  send(message: Message) {
+  async send(message: Message) {
     if (!this.dest) throw new Error('dest pipe is not assigned');
     this.dest.emit('message', message);
   }
