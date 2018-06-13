@@ -5,6 +5,10 @@ export function error() {
   throw this.error(-1000, 'An error message');
 }
 
+export function exception() {
+  throw new Error('An exception message');
+}
+
 export function incrementCounterBy(counter, value) {
   if (!(counter instanceof Counter)) {
     throw this.error(-1000, 'Argument not an instance of Counter');

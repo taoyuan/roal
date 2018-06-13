@@ -36,6 +36,16 @@ export function suitesCommonForClient(getClient: () => RPC, options?) {
       }
     });
 
+    it('should be able to request an exception-method on the server', async () => {
+      try {
+        await client.request('exception', []);
+        assert.fail()
+      } catch (e) {
+        assert.propertyVal(e, 'message', 'An exception message');
+        assert.propertyVal(e, 'code', -32603);
+      }
+    });
+
     it('should support reviving and replacing', async () => {
       const a = 2, b = 1;
       const instance = new Counter(a);

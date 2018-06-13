@@ -15,11 +15,6 @@ export class Method {
     } else if (!Array.isArray(params)) {
       params = [params];
     }
-    try {
-      return await this.handler.call(rpc, ...params);
-    } catch (e) {
-      throw e;
-    }
-
+    return this.handler.call(rpc, ...params);
   }
 }

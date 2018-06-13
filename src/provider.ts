@@ -112,10 +112,10 @@ export class Provider extends EventEmitter {
       throw new Error(`invalid method ${name}`);
     }
 
-    return await this._methods[name].execute(this, params);
+    return this._methods[name].execute(this, params);
   }
 
-  handle(message: Message, context?: TransportContext): void {
+  handle(message: Message, context?: TransportContext) {
     switch (message.type) {
       case MT_SIGNAL:
         return this._handleSignal(message, context);
@@ -151,17 +151,17 @@ export class Provider extends EventEmitter {
         this._txs[id].hTimeout = setTimeout(() => this._handleTimeout(transaction), timeout);
       }
 
-      this.dispatch(makeRequestMessage(method, params, id));
+      return this.dispatch(makeRequestMessage(method, params, id));
     });
   }
 
-  signal(name: string, payload?: any) {
-    this.dispatch(makeSignalMessage(name, payload));
+  async signal(name: string, payload?: any) {
+    await this.dispatch(makeSignalMessage(name, payload));
   }
 
-  protected _raiseError(code: number, reason?: string, context?: TransportContext): void;
-  protected _raiseError(reason: string, code?: number, context?: TransportContext): void;
-  protected _raiseError(code: number | string, reason?: number | string, context?: TransportContext): void {
+  protected _raiseError(code: number, reason?: string, context?: TransportContext);
+  protected _raiseError(reason: string, code?: number, context?: TransportContext);
+  protected async _raiseError(code: number | string, reason?: number | string, context?: TransportContext) {
     let codeToUse: number;
     let reasonToUse: string;
     if (typeof code === 'number') {
@@ -176,7 +176,7 @@ export class Provider extends EventEmitter {
     this.emit('error', error);
 
 
-    this.dispatch(makeInternalMessage(
+    await this.dispatch(makeInternalMessage(
       MSG_ERROR,
       error,
     ), context);
@@ -189,7 +189,7 @@ export class Provider extends EventEmitter {
     this._signals.emit(message.name, message.payload, context);
   }
 
-  protected _handelRequest(message: Message, context?: TransportContext): any {
+  protected async _handelRequest(message: Message, context?: TransportContext) {
     if (!this._methods[message.name]) {
       // return this._raiseError(`invalid method "${message.name}"`);
 
@@ -200,18 +200,21 @@ export class Provider extends EventEmitter {
       ), context);
     }
 
-    return this.call(message.name, message.payload).then(
-      (result: any) => this.dispatch(makeInternalMessage(
+    try {
+      const result = await this.call(message.name, message.payload);
+      return await this.dispatch(makeInternalMessage(
         MSG_RESOLVE,
         result,
         message.id
-      ), context),
-      (reason: any) => this.dispatch(makeInternalMessage(
+      ), context)
+    } catch (e) {
+      const payload = e && (e.message || e.code) ? createError(e.code, e.message) : e;
+      return await this.dispatch(makeInternalMessage(
         MSG_REJECT,
-        reason,
+        payload,
         message.id
       ), context)
-    );
+    }
   }
 
   protected _handleInternal(message: Message, context?: TransportContext): any {
