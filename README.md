@@ -88,7 +88,7 @@ Register a handler function for signals with id `id`. Returns the provider insta
 ### Sending RPC remote calls
 
 ```typescript
-const result = rpc.request(name, payload, transfer);
+const result = rpc.request(name, payload);
 ```
 
 Dispatch a RPC call and returns a promise for its result. The promise is rejected
@@ -97,19 +97,17 @@ the operation).
 
 - `name`: RPC call name.
 - `payload` (optional): RPC call payload.
-- `transfer` (optional): List of `Transferables` that will be passed to dispatched (see above).
 
 ### Emitting signals
 
 ```typescript
-rpc.signal(signal, payload, transfer);
+rpc.signal(signal, payload);
 ```
 
 Dispatch a signal. 
 
 - `signal`: Signal name.
 - `payload` (optional): Signal payload.
-- `transfer` (optional): List of `Transferables` that will be passed to dispatched (see above).
 
 Returns a `Disposable` instance. The `Disposable` instance has one method `dispose`, it can remove the signal handler.
 
