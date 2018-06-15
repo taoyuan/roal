@@ -1,5 +1,5 @@
 import {assert} from "chai";
-import {Provider} from "../src";
+import {Provider, TimeoutError} from "../src";
 
 describe("provider", () => {
   let server: Provider;
@@ -49,7 +49,11 @@ describe("provider", () => {
       return client.request('action').then(
         () => Promise.reject('should have been rejected'),
         (e) => {
-          assert.strictEqual(e, 10);
+          assert.deepEqual(e, {
+            code: -32603,
+            data: 10,
+            message: "Internal error"
+          });
           assert(!errorClient);
           assert(!errorServer);
         }
@@ -70,11 +74,10 @@ describe("provider", () => {
       server.method('action', () => new Promise(r => setTimeout(() => r(10), 100)));
       return client.request('action').then(
         () => Promise.reject('should have been rejected'),
-        () => {
-          assert(errorClient);
-          return new Promise(r => setTimeout(r, 100))
+        (err) => {
+          assert.instanceOf(err, TimeoutError);
         }
-      ).then(() => assert(errorServer));
+      )
     });
 
     it('multiple request do not interfere', () => {
@@ -118,13 +121,6 @@ describe("provider", () => {
       assert.strictEqual(x, 5);
     });
 
-    it('Unregistered signals raise an error', () => {
-      client.signal('action', 10);
-
-      assert.ok(errorServer);
-      assert.ok(errorClient);
-    });
-
     it('Multiple signals do not interfere', () => {
       let x = -1, y = -1;
 
@@ -161,8 +157,6 @@ describe("provider", () => {
 
       client.signal('action', 5);
 
-      assert(errorClient);
-      assert(errorServer);
       assert.strictEqual(x, -1);
     });
 

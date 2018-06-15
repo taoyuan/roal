@@ -1,7 +1,8 @@
 import {Provider} from "./provider";
-import {TransportContext, Framer, Message} from "./defines";
-import {ErrorCodes} from "./errors";
+import {TransportContext, Framer} from "./defines";
 import {Transport} from "./transport";
+import {ResponseMessage} from "./response";
+import {RequestMessage} from "./request";
 
 export interface RPCOptions {
   id?: any;
@@ -34,18 +35,15 @@ export class RPC extends Provider {
 
   protected init(options: RPCOptions) {
     // handle incoming message
-    this._transport.on('error:decode', (err, context) => {
-      this._raiseError(ErrorCodes.PARSE_ERROR, err.message, context);
+    this._transport.on('error:decode', async (err, context) => {
+      await this.dispatchError(err, null, context);
     });
 
-    this._transport.on('message', (message, context) => {
-      if (!message || !message.name) {
-        return this._raiseError(ErrorCodes.PARSE_ERROR, context);
-      }
+    this._transport.on('message', async (message, context) => {
       try {
         this.handle(message, context);
       } catch (e) {
-        this._raiseError(ErrorCodes.INTERNAL_ERROR, e.message, context);
+        await this.dispatchError(e, message.id, context);
       }
     });
 
@@ -62,7 +60,7 @@ export class RPC extends Provider {
     }
   }
 
-  async dispatch(message: Message, context?: TransportContext) {
+  async dispatch(message: RequestMessage | ResponseMessage, context?: TransportContext) {
     // handle outgoing message
     await this._transport.send(message, context);
   }

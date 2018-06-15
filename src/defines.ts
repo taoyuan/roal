@@ -1,7 +1,3 @@
-export const MT_RPC = 'rpc';
-export const MT_SIGNAL = 'signal';
-export const MT_INTERNAL = 'internal';
-
 export type EncodeFunc = (input: any) => any;
 export type DecodeFunc = (input: any) => any;
 
@@ -27,17 +23,10 @@ export interface Framer<T> {
   decode(input: Buffer | Uint8Array | number[]): any;
 }
 
-export interface Message {
-  type: string;
-  id?: number | string;
-  name: string;
-  payload?: any;
-}
-
 export interface TransportContext {
   [name: string]: any;
 }
 
 export interface Dispatcher {
-  (message: Message, context?: TransportContext): Promise<any>;
+  (message: any, context?: TransportContext): Promise<any>;
 }

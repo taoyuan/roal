@@ -37,12 +37,10 @@ const rpc = new Provider(dispatcher, timeout);
 ### Creating a new rpc
 
 ```typescript
-const rpc = new RPC(transportOrChannel, options);
+const rpc = RPC.create(transport, options);
 ```
 
-RPC class integrated with `channel`, `transport` and `framer` to simplify usage.
-
-__Comming Soon__
+__Coming Soon__
 
 ### Incoming messages
 

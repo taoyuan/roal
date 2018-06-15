@@ -1,12 +1,19 @@
 import {EventEmitter} from "events";
 import {Method} from "./method";
-import {TransportContext, Dispatcher, Message, MT_SIGNAL, MT_RPC, MT_INTERNAL} from "./defines";
-import {createError, ErrorCodes} from "./errors";
-import {makeInternalMessage, makeRequestMessage, makeSignalMessage, nextId} from "./utils";
-
-export const MSG_RESOLVE = "resolve";
-export const MSG_REJECT = "reject";
-export const MSG_ERROR = "error";
+import {TransportContext, Dispatcher} from "./defines";
+import {isRequest, isSignal, makeRequest, RequestMessage, SignalMessage} from "./request";
+import {
+  FailureError,
+  isFailure,
+  isResponse, isSuccess,
+  makeFailure,
+  makeFailureErrorFrom,
+  makeMethodNotFoundError, makeParseError,
+  makeSuccess,
+  ResponseMessage
+} from "./response";
+import {nextId} from "./utils";
+import {TimeoutError} from "./errors";
 
 export interface Listener<T> {
   (event: T): any;
@@ -22,13 +29,13 @@ export interface Transaction {
 
   resolve(result: any): void;
 
-  reject(error: string): void;
+  reject(error: FailureError | Error): void;
 }
 
 export class Provider extends EventEmitter {
   private _signals = new EventEmitter();
   private _methods: { [id: string]: Method } = {};
-  private _txs: { [id: number]: Transaction } = {};
+  private _txs: { [id: string]: Transaction } = {};
 
   protected _dispatch?: Dispatcher;
   protected _timeout: number = 0;
@@ -39,15 +46,15 @@ export class Provider extends EventEmitter {
     this._timeout = timeout || 0;
   }
 
-  async dispatch(message: Message, context?: TransportContext) {
+  async dispatch(message: any, context?: TransportContext) {
     if (!this._dispatch) {
       throw new Error('Not implemented');
     }
     return this._dispatch(message, context);
   }
 
-  error(code?: number, message?: string, data?: any) {
-    return createError(code, message, data);
+  async dispatchError(err: any, id?: number | string | null, context?: TransportContext) {
+    return this.dispatch(makeFailure(makeFailureErrorFrom(err), id), context);
   }
 
   method(name: string, definition: any): void {
@@ -115,149 +122,91 @@ export class Provider extends EventEmitter {
     return this._methods[name].execute(this, params);
   }
 
-  handle(message: Message, context?: TransportContext) {
-    switch (message.type) {
-      case MT_SIGNAL:
-        return this._handleSignal(message, context);
-
-      case MT_RPC:
-        return this._handelRequest(message, context);
-
-      case MT_INTERNAL:
-        return this._handleInternal(message, context);
-
-      default:
-        return this._raiseError(`invalid message type ${message.type}`, undefined, context);
+  handle(message: RequestMessage | ResponseMessage, context?: TransportContext) {
+    if (isSignal(message)) {
+      return this._handleSignal(message, context);
+    } else if (isRequest(message)) {
+      return this._handelRequest(message, context);
+    } else if (isResponse(message)) {
+      return this._handleResponse(message, context);
     }
+
+    throw makeParseError();
   }
 
-  request<T, U>(method: string, params?: T, options?: any | number): Promise<U> {
+  request<T>(method: string, params?: any, options?: any | number): Promise<T> {
     return new Promise((resolve, reject) => {
       if (typeof options === 'number') {
         options = {timeout: options}
       }
       options = options || {};
+
       const timeout = options.timeout != null ? options.timeout : this._timeout;
-
-      const id = nextId();
-
-      const transaction = this._txs[id] = {
-        id,
-        resolve,
-        reject
-      };
+      const id: number = nextId();
+      const transaction = this._txs[id] = {id, resolve, reject};
 
       if (timeout > 0) {
         this._txs[id].hTimeout = setTimeout(() => this._handleTimeout(transaction), timeout);
       }
 
-      return this.dispatch(makeRequestMessage(method, params, id));
+      return this.dispatch(makeRequest(method, params, id));
     });
   }
 
-  async signal(name: string, payload?: any) {
-    await this.dispatch(makeSignalMessage(name, payload));
+  signal(name: string, payload?: any) {
+    this.dispatch(makeRequest(name, payload));
   }
 
-  protected _raiseError(code: number, reason?: string, context?: TransportContext);
-  protected _raiseError(reason: string, code?: number, context?: TransportContext);
-  protected async _raiseError(code: number | string, reason?: number | string, context?: TransportContext) {
-    let codeToUse: number;
-    let reasonToUse: string;
-    if (typeof code === 'number') {
-      codeToUse = code;
-      reasonToUse = <string>reason;
+  protected _handleSignal(message: SignalMessage, context?: TransportContext): void {
+    if (this._signals.listenerCount(message.method)) {
+      this._signals.emit(message.method, message.params, context);
     } else {
-      codeToUse = <number>reason;
-      reasonToUse = code;
+      this.emit('signal', message.method, message.params);
     }
-
-    const error = createError(codeToUse || ErrorCodes.INTERNAL_ERROR, reasonToUse);
-    this.emit('error', error);
-
-
-    await this.dispatch(makeInternalMessage(
-      MSG_ERROR,
-      error,
-    ), context);
   }
 
-  protected _handleSignal(message: Message, context?: TransportContext): void {
-    if (!this._signals.listenerCount('signal') && !this._signals.listenerCount(message.name)) {
-      return this._raiseError(`invalid signal ${message.name}`, undefined, context);
-    }
-    this._signals.emit(message.name, message.payload, context);
-  }
-
-  protected async _handelRequest(message: Message, context?: TransportContext) {
-    if (!this._methods[message.name]) {
-      // return this._raiseError(`invalid method "${message.name}"`);
-
-      return this.dispatch(makeInternalMessage(
-        MSG_REJECT,
-        createError(ErrorCodes.METHOD_NOT_FOUND, `invalid method "${message.name}"`),
-        message.id
-      ), context);
+  protected async _handelRequest(message: RequestMessage, context?: TransportContext) {
+    if (!this._methods[message.method]) {
+      return this.dispatchError(
+        makeMethodNotFoundError(message.method),
+        message.id,
+        context);
     }
 
     try {
-      const result = await this.call(message.name, message.payload);
-      return await this.dispatch(makeInternalMessage(
-        MSG_RESOLVE,
+      const result = await this.call(message.method, message.params);
+      return this.dispatch(makeSuccess(
         result,
         message.id
       ), context)
     } catch (e) {
-      const payload = e && (e.message || e.code) ? createError(e.code, e.message) : e;
-      return await this.dispatch(makeInternalMessage(
-        MSG_REJECT,
-        payload,
+      return this.dispatch(makeFailure(
+        makeFailureErrorFrom(e),
         message.id
       ), context)
     }
   }
 
-  protected _handleInternal(message: Message, context?: TransportContext): any {
-    switch (message.name) {
-      case MSG_RESOLVE:
-        if (!message.id && message.id != 0) {
-          return this._raiseError(`invalid internal message. message "id" is required`, undefined, context);
-        }
-        if (!this._txs[message.id]) {
-          return this._raiseError(`no pending transaction with id ${message.id}`, undefined, context);
-        }
+  protected _handleResponse(message: ResponseMessage, context?: TransportContext): any {
+    if (message.id == null || !this._txs[message.id]) {
+      return this.emit('response:invalid-id', message);
+    }
 
-        this._txs[message.id].resolve(message.payload);
-        this._clearTransaction(this._txs[message.id]);
+    const id = message.id;
 
-        break;
-
-      case MSG_REJECT:
-        if (!message.id && message.id != 0) {
-          return this._raiseError(`invalid internal message. message "id" is required`, undefined, context);
-        }
-        if (!this._txs[message.id]) {
-          return this._raiseError(`no pending transaction with id ${message.id}`, undefined, context);
-        }
-
-        this._txs[message.id].reject(message.payload);
-        this._clearTransaction(this._txs[message.id]);
-
-        break;
-
-      case MSG_ERROR:
-        this.emit('error', message.payload, undefined, context);
-        break;
-
-      default:
-        this._raiseError(`unhandled internal message ${message.name}`, undefined, context);
-        break;
+    if (isSuccess(message)) {
+      this._txs[id].resolve(message.result);
+      this._clearTransaction(this._txs[id]);
+    } else if (isFailure(message)) {
+      this._txs[id].reject(message.error);
+      this._clearTransaction(this._txs[id]);
+    } else {
+      return this.emit('response:invalid-message', message);
     }
   }
 
   protected _handleTimeout(transaction: Transaction): void {
-    transaction.reject('transaction timed out');
-    this._raiseError(`transaction ${transaction.id} timed out`);
+    transaction.reject(new TimeoutError('transaction timed out'));
     delete this._txs[transaction.id];
   }
 

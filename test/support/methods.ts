@@ -1,8 +1,9 @@
 import {wait} from "./index";
 import {Counter} from "./counter";
+import {makeFailureError} from "../../src";
 
 export function error() {
-  throw this.error(-1000, 'An error message');
+  throw makeFailureError(-1000, 'An error message');
 }
 
 export function exception() {
@@ -11,7 +12,7 @@ export function exception() {
 
 export function incrementCounterBy(counter, value) {
   if (!(counter instanceof Counter)) {
-    throw this.error(-1000, 'Argument not an instance of Counter');
+    throw makeFailureError(-1000, 'Argument not an instance of Counter');
   }
   counter.incrementBy(value);
   return counter;

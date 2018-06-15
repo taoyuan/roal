@@ -1,7 +1,9 @@
 import {EventEmitter} from "events";
-import {TransportContext, Framer, Message} from "../defines";
+import {TransportContext, Framer} from "../defines";
 import {Transport} from "../transport";
-import {JsonFramer} from "../framers/json";
+import {JsonFramer} from "../framers";
+import {RequestMessage} from "../request";
+import {ResponseMessage} from "../response";
 
 const BUFFER_INITIAL_SIZE = 1024 * 1024; // 1MB
 const BUFFER_GROW_RATIO = 1.5;
@@ -46,7 +48,7 @@ export class StreamTransport extends Transport {
     throw new Error('Unimplemented')
   }
 
-  async send(message: Message, context?: TransportContext) {
+  async send(message: RequestMessage | ResponseMessage, context?: TransportContext) {
     const data = this._framer.encode(message);
     const len = new Uint32Array([data.length]);
     this.write(Buffer.from(<ArrayBuffer>len.buffer), context);

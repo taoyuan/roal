@@ -1,5 +1,7 @@
-import {TransportContext, Message} from "./defines";
+import {TransportContext} from "./defines";
 import {EventEmitter} from "events";
+import {RequestMessage} from "./request";
+import {ResponseMessage} from "./response";
 
 export class Transport extends EventEmitter {
   protected _context = {};
@@ -12,12 +14,12 @@ export class Transport extends EventEmitter {
     return context || this._context;
   }
 
-  recv(message: Message, context?: TransportContext) {
+  recv(message: RequestMessage | ResponseMessage, context?: TransportContext) {
     this.emit('message', message, this.sureContext(context));
   }
 
-  async send(message: Message, context?: TransportContext) {
-    throw new Error('Unimplemented')
+  async send(message: RequestMessage | ResponseMessage, context?: TransportContext) {
+    throw new Error('Unimplemented');
   }
 
   close() {

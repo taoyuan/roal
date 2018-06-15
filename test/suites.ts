@@ -7,7 +7,7 @@ export function suitesCommonForClient(getClient: () => RPC, options?) {
 
   return function () {
 
-    let client;
+    let client: RPC;
 
     beforeEach(() => {
       client = getClient();
@@ -28,7 +28,7 @@ export function suitesCommonForClient(getClient: () => RPC, options?) {
 
     it('should be able to request an error-method on the server', async () => {
       try {
-        await client.request('error', []);
+        await client.request('error');
         assert.fail()
       } catch (e) {
         assert.propertyVal(e, 'message', 'An error message');
@@ -38,11 +38,17 @@ export function suitesCommonForClient(getClient: () => RPC, options?) {
 
     it('should be able to request an exception-method on the server', async () => {
       try {
-        await client.request('exception', []);
+        await client.request('exception');
         assert.fail()
       } catch (e) {
-        assert.propertyVal(e, 'message', 'An exception message');
-        assert.propertyVal(e, 'code', -32603);
+        assert.deepInclude(e, {
+          code: -32603,
+          message: 'Internal error',
+          data: {
+            name: 'Error',
+            message: 'An exception message'
+          }
+        });
       }
     });
 
