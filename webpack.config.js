@@ -18,6 +18,6 @@ module.exports = {
     extensions: ['-browser.js', '.js', '.json']
   },
   plugins: [
-    new UglifyJsPlugin()
+    // new UglifyJsPlugin()
   ]
 };
