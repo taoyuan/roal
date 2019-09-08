@@ -1,5 +1,7 @@
 # roal
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/taoyuan/roal.svg)](https://greenkeeper.io/)
+
 > A Remoting Object Access Layer for communicating for C/S on top of any transport that transfers JSON data.
 
 ## What is it?
